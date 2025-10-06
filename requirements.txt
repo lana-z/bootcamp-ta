@@ -1,0 +1,4 @@
+openai>=1.43.0
+requests>=2.32.3
+python-dotenv>=1.0.1
+agent-framework>=0.1.0

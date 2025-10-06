@@ -1,0 +1,9 @@
+{
+  "criteria": [
+    {"id": "func",  "name": "Functional Correctness", "weight": 0.4},
+    {"id": "style", "name": "Style & Clarity",        "weight": 0.2},
+    {"id": "tests", "name": "Testing & Coverage",     "weight": 0.25},
+    {"id": "docs",  "name": "Docs & Readme",          "weight": 0.15}
+  ],
+  "scale": [0,1,2,3,4]
+}
