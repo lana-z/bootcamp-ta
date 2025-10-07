@@ -33,12 +33,14 @@ GITHUB_TOKEN=ghp_your_token             # only needed when fetching private PRs 
 
 ## Usage
 
+Run either entry point with no `--pr` to see the built-in sample –also works for offline demo or quick smoke test. Pass a GitHub PR URL for live data. If the repository is private or you need higher rate limits, export `GITHUB_TOKEN` alongside `OPENAI_API_KEY`. When you have external test logs (pytest, CI, etc.), feed them in via `--failing "…"` so the analyzer can reference them; otherwise skip the flag.    
+
 ### 1. Classic Pipeline (`main.py`)
 ```bash
 python main.py --pr https://github.com/org/repo/pull/123
 ```
 - Pulls diffs via GitHub REST API, analyzes against the rubric, and prints Markdown review.
-- Pass `--failing "pytest logs..."` to feed failing tests into the analysis.
+- Add `--failing "your test output..."` if you want the analyzer to reference external logs.
 - Omit `--pr` to run the built-in sample diff for quick smoke tests.
 
 ### 2. Agent Framework Demo (`msa_main.py`)
