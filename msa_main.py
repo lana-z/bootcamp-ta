@@ -1,5 +1,7 @@
 import os, json, asyncio, argparse
-from typing import Dict, List
+from typing import Dict
+
+from dotenv import load_dotenv
 
 # Microsoft Agent Framework (Python)
 from agent_framework import ChatAgent, ChatMessage
@@ -7,11 +9,26 @@ from agent_framework.openai import OpenAIChatClient  # uses OPENAI_API_KEY from 
 
 # reuse existing helpers
 from agents.fetcher import get_diffs_or_sample
+from agents.analyzer import normalize_json_text
 # we'll print the Writer agent's markdown directly for the demo
+
+load_dotenv()
 
 def load_rubric() -> Dict:
     with open('rubric.json','r') as f:
         return json.load(f)
+
+def message_text(message) -> str:
+    """Extract plain text from a ChatAgent result regardless of concrete return type."""
+    if message is None:
+        return ''
+    text = getattr(message, 'text', None)
+    if text:
+        return text
+    content = getattr(message, 'content', None)
+    if isinstance(content, str):
+        return content
+    return str(message)
 
 async def run_agentized(pr_url: str | None, failing_tests: str | None) -> str:
     rubric = load_rubric()
@@ -27,10 +44,11 @@ async def run_agentized(pr_url: str | None, failing_tests: str | None) -> str:
         )
     )
     fetcher.chat_client.model = os.getenv('OPENAI_MODEL', 'gpt-4o-mini')
-    fetch_summary = await fetcher.run(ChatMessage(
+    fetch_summary_msg = await fetcher.run(ChatMessage(
         role='user',
         text=f'Diff JSON (truncate if large):\n{json.dumps(diffs)[:55000]}\nSummarize changes as bullets.'
     ))
+    fetch_summary = message_text(fetch_summary_msg)
 
     # 2) Analyzer: rubric scoring + suggestions (STRICT JSON)
     analyzer = ChatAgent(
@@ -48,13 +66,15 @@ async def run_agentized(pr_url: str | None, failing_tests: str | None) -> str:
         'rubric': rubric,
         'diffs': diffs,
         'failing_tests': failing_tests or '',
-        'diff_summary': str(fetch_summary)
+        'diff_summary': fetch_summary
     }
-    analyze_raw = await analyzer.run(ChatMessage(role='user', text=json.dumps(analyze_input)))
+    analyze_raw_msg = await analyzer.run(ChatMessage(role='user', text=json.dumps(analyze_input)))
+    analyze_raw = message_text(analyze_raw_msg)
     try:
-        analysis = json.loads(str(analyze_raw))
+        normalized = normalize_json_text(analyze_raw)
+        analysis = json.loads(normalized)
     except Exception:
-        analysis = {'scores': [], 'summary_md': str(analyze_raw), 'suggestions': []}
+        analysis = {'scores': [], 'summary_md': analyze_raw, 'suggestions': []}
 
     # 3) Writer: turn analysis JSON into polished Markdown review
     writer = ChatAgent(
@@ -72,10 +92,11 @@ async def run_agentized(pr_url: str | None, failing_tests: str | None) -> str:
         'rubric': rubric,
         'analysis': analysis
     }
-    md = await writer.run(ChatMessage(role='user', text=f'Create the Markdown for this review:\n{json.dumps(writer_prompt)[:60000]}'))
+    md_msg = await writer.run(ChatMessage(role='user', text=f'Create the Markdown for this review:\n{json.dumps(writer_prompt)[:60000]}'))
+    md = message_text(md_msg)
 
     # final output is the Writer agent's markdown
-    return str(md)
+    return md
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()

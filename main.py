@@ -9,7 +9,8 @@ from agents.writer import render_markdown
 
 def run(pr_url: str = None, failing_tests: str = '') -> str:
     t0 = time.time()
-    rubric = json.load(open('rubric.json'))
+    with open('rubric.json', 'r') as f:
+        rubric = json.load(f)
     if pr_url:
         pr = fetch_pr(pr_url)
         diffs = pr['diffs']
@@ -20,7 +21,7 @@ def run(pr_url: str = None, failing_tests: str = '') -> str:
     review = analyze(rubric, diffs, failing_tests)
     md = render_markdown(pr, review, rubric)
     elapsed = int((time.time() - t0) * 1000)
-    print(f'\\n—— Trace: Fetcher ✓, Analyzer ✓, Writer ✓ · {elapsed} ms ——\\n')
+    print(f'\n—— Trace: Fetcher ✓, Analyzer ✓, Writer ✓ · {elapsed} ms ——\n')
     return md
 
 if __name__ == '__main__':

@@ -4,8 +4,26 @@ from openai import OpenAI
 
 MODEL = os.getenv('OPENAI_MODEL', 'gpt-4o-mini')
 
+def normalize_json_text(raw: str) -> str:
+    raw = (raw or '').strip()
+    if raw.startswith('```'):
+        raw = raw.split('```', 2)[1].strip()
+        lang, _, remainder = raw.partition('\n')
+        lang_clean = lang.strip().lower()
+        if remainder:
+            if lang_clean in {'json', 'javascript', 'js'}:
+                raw = remainder.strip()
+            elif not lang.strip().startswith('{'):
+                raw = remainder.strip()
+        else:
+            raw = lang.strip()
+    return raw
+
 def analyze(rubric: Dict, diffs: List[Dict], failing_tests: str = '') -> Dict:
-    client = OpenAI(api_key=os.environ['OPENAI_API_KEY'])
+    api_key = os.getenv('OPENAI_API_KEY')
+    if not api_key:
+        raise RuntimeError('OPENAI_API_KEY is not set. Add it to your environment or .env file.')
+    client = OpenAI(api_key=api_key)
     sys = 'You are a senior instructor reviewing student PRs with strict rubric scoring.'
     user = f"""Rubric JSON:
 {json.dumps(rubric)}
@@ -27,7 +45,8 @@ Return JSON with:
         temperature=0.2,
     )
     try:
-        return json.loads(resp.output_text)
+        raw = normalize_json_text(resp.output_text)
+        return json.loads(raw)
     except Exception:
         # fallback to raw text if model didn't return JSON
         return {'scores': [], 'summary_md': resp.output_text, 'suggestions': []}
